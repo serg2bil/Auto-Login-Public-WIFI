@@ -87,6 +87,24 @@ async def login_to_portal(url, username, password, status_url, debug_mode):
         browser = await p.chromium.launch(headless=not debug_mode)
         page = await browser.new_page()
 
+        await page.wait_for_load_state('networkidle')
+        current_url = page.url
+
+        if status_url:
+            if current_url.startswith(status_url):
+                print('Already logged in.')
+
+                return
+            else:
+                print("Login failed or no redirect occurred.")
+        else:
+            if check_internet_connection():
+                print("Login successful; internet is now available.")
+                return
+            else:
+                print("Login failed; internet is still unavailable.")
+
+
         await page.goto(url)
 
         print("Filling in username...")
@@ -97,20 +115,6 @@ async def login_to_portal(url, username, password, status_url, debug_mode):
 
         print("Submitting form...")
         await page.click('button[type="submit"]')
-
-        await page.wait_for_load_state('networkidle')
-        current_url = page.url
-
-        if status_url:
-            if current_url.startswith(status_url):
-                print('Already logged in.')
-            else:
-                print("Login failed or no redirect occurred.")
-        else:
-            if check_internet_connection():
-                print("Login successful; internet is now available.")
-            else:
-                print("Login failed; internet is still unavailable.")
 
         await browser.close()
 
