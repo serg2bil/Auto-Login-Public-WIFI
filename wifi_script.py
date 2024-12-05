@@ -81,31 +81,25 @@ def connect_to_wifi(ssid):
         print(f"Error connecting: {e}")
         return False
 
-async def login_to_portal(url, username, password, status_url, debug_mode):
+async def login_to_portal(url, username, password, status_url=None, debug_mode=False):
     print(f"Opening browser for login at {url}...")
+
+    if check_internet_connection():
+        print("Internet is available. No login required.")
+        return
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=not debug_mode)
         page = await browser.new_page()
 
+        await page.goto(url)
         await page.wait_for_load_state('networkidle')
         current_url = page.url
 
-        if status_url:
-            if current_url.startswith(status_url):
-                print('Already logged in.')
-
-                return
-            else:
-                print("Login failed or no redirect occurred.")
-        else:
-            if check_internet_connection():
-                print("Login successful; internet is now available.")
-                return
-            else:
-                print("Login failed; internet is still unavailable.")
-
-
-        await page.goto(url)
+        if status_url and current_url.startswith(status_url):
+            print("Already logged in. No further actions required.")
+            await browser.close()
+            return
 
         print("Filling in username...")
         await page.fill('input[name="username"]', username)
@@ -116,7 +110,19 @@ async def login_to_portal(url, username, password, status_url, debug_mode):
         print("Submitting form...")
         await page.click('button[type="submit"]')
 
+        await page.wait_for_load_state('networkidle')
+        current_url = page.url
+
+
+        if status_url and current_url.startswith(status_url):
+            print("Login successful; redirected to status page.")
+        elif check_internet_connection():
+            print("Login successful; internet is now available.")
+        else:
+            print("Login failed; internet is still unavailable or no redirect occurred.")
+
         await browser.close()
+
 
 async def main():
     config = load_config()
