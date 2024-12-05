@@ -1,3 +1,10 @@
+import subprocess
+import asyncio
+import json
+import os
+from playwright.async_api import async_playwright
+import socket
+
 CONFIG_FILE = 'wifi_config.json'
 
 def prompt_non_empty(prompt_message):
@@ -15,7 +22,7 @@ def create_config_file():
     login_page_url = prompt_non_empty('Enter login page URL (http://123.456.7.8/login): ')
     username = prompt_non_empty('Enter username (login): ')
     password = prompt_non_empty('Enter password (password): ')
-    status_url = input('Enter status check URL (leave empty if not required): ').strip()
+    status_url = input('Enter status check URL (http://123.456.7.8/status (not required)): ').strip()
     debug_mode = input('Enable debug mode? (yes/no): ').strip().lower() == 'yes'
 
     config_data = {
