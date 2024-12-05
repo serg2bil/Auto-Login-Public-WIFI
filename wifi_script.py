@@ -1,29 +1,35 @@
-import subprocess
-import asyncio
-import json
-import os
-from playwright.async_api import async_playwright
-import socket
-
 CONFIG_FILE = 'wifi_config.json'
 
+def prompt_non_empty(prompt_message):
+    """Prompt user input and ensure it is not empty."""
+    while True:
+        value = input(prompt_message).strip()
+        if value:
+            return value
+        print("This field is required. Please enter a valid value.")
+
 def create_config_file():
-    print('Конфигурационный файл не найден. Создание нового файла "wifi_config.json". Пожалуйста, введите данные для конфигурации:')
-    target_ssid = input('Введите имя Wi-Fi сети (Exemple_WIFI): ')
-    login_page_url = input('Введите URL страницы логина (http://123.456.7.8/login): ')
-    username = input('Введите логин пользователя (login): ')
-    password = input('Введите пароль (password): ')
+    print('Configuration file not found. Creating a new "wifi_config.json" file. Please enter configuration details:')
+
+    target_ssid = prompt_non_empty('Enter Wi-Fi network name (Example_WIFI): ')
+    login_page_url = prompt_non_empty('Enter login page URL (http://123.456.7.8/login): ')
+    username = prompt_non_empty('Enter username (login): ')
+    password = prompt_non_empty('Enter password (password): ')
+    status_url = input('Enter status check URL (leave empty if not required): ').strip()
+    debug_mode = input('Enable debug mode? (yes/no): ').strip().lower() == 'yes'
 
     config_data = {
         "target_ssid": target_ssid,
         "login_page_url": login_page_url,
         "username": username,
-        "password": password
+        "password": password,
+        "status_url": status_url if status_url else None,
+        "debug_mode": debug_mode
     }
 
     with open(CONFIG_FILE, 'w') as config_file:
         json.dump(config_data, config_file, indent=4)
-    print('Конфигурационный файл "wifi_config.json" успешно создан.')
+    print('Configuration file "wifi_config.json" successfully created.')
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -32,71 +38,72 @@ def load_config():
         return json.load(config_file)
 
 def check_internet_connection():
-    print("\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442-\u0441\u043e\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u044f...")
+    print("Checking internet connection...")
     try:
         socket.setdefaulttimeout(1.5)
         socket.create_connection(("8.8.8.8", 53))
-        print("\u0418\u043d\u0442\u0435\u0440\u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.")
+        print("Internet is available.")
         return True
     except OSError:
-        print("\u0418\u043d\u0442\u0435\u0440\u043d\u0435\u0442 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.")
+        print("Internet is not available.")
         return False
 
 def check_current_connection():
-    print("\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0442\u0435\u043a\u0443\u0449\u0435\u0433\u043e \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f...")
+    print("Checking current connection...")
     try:
         result = subprocess.check_output(['netsh', 'wlan', 'show', 'interfaces'], encoding='cp866')
         ssid_match = next((line for line in result.splitlines() if "SSID" in line and "BSSID" not in line), None)
         if ssid_match:
             current_ssid = ssid_match.split(':')[1].strip()
-            print(f"\u0422\u0435\u043a\u0443\u0449\u0435\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435: {current_ssid}")
+            print(f"Current connection: {current_ssid}")
             return current_ssid
         else:
-            print("\u041d\u0435\u0442 \u0430\u043a\u0442\u0438\u0432\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f.")
+            print("No active connection.")
             return None
     except subprocess.CalledProcessError as e:
-        print(f"\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f: {e}")
+        print(f"Error checking connection: {e}")
         return None
 
 def connect_to_wifi(ssid):
-    print(f"\u041f\u043e\u043f\u044b\u0442\u043a\u0430 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u043a Wi-Fi \u0441\u0435\u0442\u0438: {ssid}...")
+    print(f"Attempting to connect to Wi-Fi network: {ssid}...")
     try:
         subprocess.check_output(['netsh', 'wlan', 'connect', f'name={ssid}'], encoding='cp866')
-        print(f"\u0423\u0441\u043f\u0435\u0448\u043d\u043e\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a Wi-Fi \u0441\u0435\u0442\u0438: {ssid}")
+        print(f"Successfully connected to Wi-Fi network: {ssid}")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f: {e}")
+        print(f"Error connecting: {e}")
         return False
 
-async def login_to_portal(url, username, password):
-    print(f"\u041e\u0442\u043a\u0440\u044b\u0442\u0438\u0435 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430 \u0434\u043b\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u0438 \u043d\u0430 {url}...")
+async def login_to_portal(url, username, password, status_url, debug_mode):
+    print(f"Opening browser for login at {url}...")
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=not debug_mode)
         page = await browser.new_page()
 
         await page.goto(url)
 
-        print("\u0417\u0430\u043f\u043e\u043b\u043d\u044f\u0435\u043c \u043b\u043e\u0433\u0438\u043d...")
+        print("Filling in username...")
         await page.fill('input[name="username"]', username)
 
-        print("\u041f\u0435\u0440\u0435\u0448\u043b\u0438 \u043a \u043f\u043e\u043b\u044e \u043f\u0430\u0440\u043e\u043b\u044f...")
+        print("Filling in password...")
         await page.fill('input[name="password"]', password)
 
-        print("\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u043c \u0444\u043e\u0440\u043c\u0443...")
+        print("Submitting form...")
         await page.click('button[type="submit"]')
 
         await page.wait_for_load_state('networkidle')
         current_url = page.url
 
-        if current_url.startswith('http://10.5.50.1/status'):
-            print('Уже залогинено.')
-            await browser.close()
-            return
-
-        if current_url != url:
-            print("\u0410\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f \u0443\u0441\u043f\u0435\u0448\u043d\u0430, \u043f\u0440\u043e\u0438\u0437\u043e\u0448\u0435\u043b \u0440\u0435\u0434\u0438\u0440\u0435\u043a\u0442.")
+        if status_url:
+            if current_url.startswith(status_url):
+                print('Already logged in.')
+            else:
+                print("Login failed or no redirect occurred.")
         else:
-            print("\u0410\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f \u043d\u0435 \u043f\u0440\u043e\u0448\u043b\u0430 \u0438\u043b\u0438 \u0440\u0435\u0434\u0438\u0440\u0435\u043a\u0442\u0430 \u043d\u0435 \u043f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u043e.")
+            if check_internet_connection():
+                print("Login successful; internet is now available.")
+            else:
+                print("Login failed; internet is still unavailable.")
 
         await browser.close()
 
@@ -106,22 +113,29 @@ async def main():
     login_page_url = config['login_page_url']
     username = config['username']
     password = config['password']
+    status_url = config.get('status_url')
+    debug_mode = config.get('debug_mode', False)
 
     internet_available = check_internet_connection()
     if internet_available:
-        print("\u0418\u043d\u0442\u0435\u0440\u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d. \u041a\u043e\u0434 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d.")
+        print("Internet is available. Code will not be executed.")
         return
 
     current_ssid = check_current_connection()
     if current_ssid == target_ssid:
-        print(f"\u0412\u044b \u0443\u0436\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u043a Wi-Fi \u0441\u0435\u0442\u0438: {target_ssid}")
-        await login_to_portal(login_page_url, username, password)
+        print(f"You are already connected to the Wi-Fi network: {target_ssid}")
+        await login_to_portal(login_page_url, username, password, status_url, debug_mode)
     else:
-        print(f"\u0412\u044b \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u044b \u043a \u0441\u0435\u0442\u0438 {target_ssid}. \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0441\u0435\u0442\u0438 {target_ssid}...")
+        print(f"You are not connected to the network {target_ssid}. Connecting to network {target_ssid}...")
         connected = connect_to_wifi(target_ssid)
         if connected:
-            await login_to_portal(login_page_url, username, password)
+            await login_to_portal(login_page_url, username, password, status_url, debug_mode)
 
 if __name__ == "__main__":
+    config = load_config()
+    debug_mode = config.get('debug_mode', False)
+
     asyncio.run(main())
-    input("\n\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043b\u044e\u0431\u0443\u044e \u043a\u043d\u043e\u043f\u043a\u0443 \u0434\u043b\u044f \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f \u043a\u043e\u043d\u0441\u043e\u043b\u0438...")
+    
+    if debug_mode:
+        input("\nPress any key to close the console...")
