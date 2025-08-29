@@ -185,4 +185,4 @@ if __name__ == "__main__":
     asyncio.run(main())
     
     if debug_mode:
-        input("\nPress any key to close the console...")
+        input("\nPress any key to close the console...") 
